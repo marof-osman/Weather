@@ -1,0 +1,6 @@
+{
+  "name": "Sonde Weather",
+  "description": "Live weather forecasts, hourly temperature curves, and 7-day outlooks.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
