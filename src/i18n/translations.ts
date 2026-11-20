@@ -28,6 +28,13 @@ export interface TranslationStrings {
   locating: string;
   saveCity: string;
   saved: string;
+  savedCities: string;
+  savedCitiesHint: string;
+  saveCurrentCity: string;
+  removeCity: string;
+  emptySlot: string;
+  searchToSaveHint: string;
+  slotsFull: string;
   refresh: string;
   refreshAria: string;
   localTime: string;
@@ -115,6 +122,13 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     locating: 'Locating...',
     saveCity: 'Save city',
     saved: 'Saved',
+    savedCities: 'Saved Cities',
+    savedCitiesHint: 'Quick-access weather slots (up to 4 cities)',
+    saveCurrentCity: 'Save',
+    removeCity: 'Remove city',
+    emptySlot: 'Empty slot',
+    searchToSaveHint: 'Search a city above to save here',
+    slotsFull: '4 / 4 saved · Remove one to add another',
     refresh: 'Refresh',
     refreshAria: 'Refresh live weather',
     localTime: 'Local',
@@ -138,7 +152,7 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     next24HoursHint: 'Select any hour to inspect temperature and rain chance',
     now: 'Now',
     outlook7Day: '7-Day Outlook',
-    outlook7DayHint: 'Click any day for sunrise, UV, and wind details',
+    outlook7DayHint: 'Click any day for sunrise, rain, and wind details',
     precipitation: 'Precipitation',
     maxWind: 'Max Wind',
     peakUv: 'Peak UV',
@@ -200,6 +214,13 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     locating: 'ل جهێ من دگەڕیت...',
     saveCity: 'تۆمارکرن',
     saved: 'تۆمارکرییە',
+    savedCities: 'باژێڕێن تۆمارکری',
+    savedCitiesHint: 'جهێن بلەز یێن کەشوهەوای (هەتا ٤ باژێڕان)',
+    saveCurrentCity: 'تۆمارکرنا',
+    removeCity: 'لابرنا باژێڕی',
+    emptySlot: 'جهەکێ بەتال',
+    searchToSaveHint: 'ل سەری ل باژێڕەکێ بگەڕە دا ل ڤێرێ تۆمار بکەی',
+    slotsFull: '٤ / ٤ تۆمارکرینە · ئێکێ لابدە دا یەکێ دی زێدە بکەی',
     refresh: 'نووکرن',
     refreshAria: 'نووکرنا کەشوهەوایێ زیندی',
     localTime: 'دەمێ جهی',
@@ -223,7 +244,7 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     next24HoursHint: 'دەمژمێرەکێ هەلبژێرە بۆ دیتنا پلەیا گەرماتیێ و ڕێژەیا بارانێ',
     now: 'نوکە',
     outlook7Day: 'پێشبینیا ٧ رۆژان',
-    outlook7DayHint: 'کلیک بکە بۆ دیتنا هەلبوونا رۆژێ، UV، و هویرکاریێن بایی',
+    outlook7DayHint: 'کلیک بکە بۆ دیتنا هەلبوونا رۆژێ، باران، و هویرکاریێن بایی',
     precipitation: 'بارین',
     maxWind: 'بلندترین با',
     peakUv: 'بلندترین UV',
@@ -285,6 +306,13 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     locating: 'Li cihê min digere...',
     saveCity: 'Tomarkirin',
     saved: 'Tomarkirî ye',
+    savedCities: 'Bajêrên Tomarkirî',
+    savedCitiesHint: 'Cihên bilez yên keşûhewayê (heta 4 bajêran)',
+    saveCurrentCity: 'Tomarkirina',
+    removeCity: 'Rakirina bajêrî',
+    emptySlot: 'Cihekê betal',
+    searchToSaveHint: 'Li jor li bajêrekî bigere da li vêrê tomar bikî',
+    slotsFull: '4 / 4 tomarkirî ne · Êkê rake da yekê dî zêde bikî',
     refresh: 'Nûkirin',
     refreshAria: 'Nûkirina keşûhewayê zîndî',
     localTime: 'Demê cihî',
@@ -308,7 +336,7 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     next24HoursHint: 'Demjimêrekê helbijêre bo dîtina pleya germatiyê û rêjeya baranê',
     now: 'Nuke',
     outlook7Day: 'Pêşbîniya 7 rojan',
-    outlook7DayHint: 'Klîk bike bo dîtina helbûna rojê, UV û hûrkariyên bayî',
+    outlook7DayHint: 'Klîk bike bo dîtina helbûna rojê, baran û hûrkariyên bayî',
     precipitation: 'Barîn',
     maxWind: 'Bilindtirîn ba',
     peakUv: 'Bilindtirîn UV',
@@ -370,6 +398,13 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     locating: 'شوێنەکەت دەدۆزرێتەوە...',
     saveCity: 'پاشەکەوتکردن',
     saved: 'پاشەکەوتکراو',
+    savedCities: 'شارە پاشەکەوتکراوەکان',
+    savedCitiesHint: 'شوێنە خێراکانی کەشوهەوا (تا ٤ شار)',
+    saveCurrentCity: 'پاشەکەوتکردنی',
+    removeCity: 'سڕینەوەی شار',
+    emptySlot: 'شوێنی بەتاڵ',
+    searchToSaveHint: 'لە سەرەوە بۆ شارێک بگەڕێ بۆ پاشەکەوتکردن',
+    slotsFull: '٤ / ٤ پاشەکەوتکراون · یەکێک بسڕەوە بۆ زیادکردنی شارێکی تر',
     refresh: 'نوێکردنەوە',
     refreshAria: 'نوێکردنەوەی کەشوهەوای ڕاستەوخۆ',
     localTime: 'کاتی ناوخۆ',
@@ -393,7 +428,7 @@ export const TRANSLATIONS: Record<LanguageCode, TranslationStrings> = {
     next24HoursHint: 'هەر کاتژمێرێک هەڵبژێرە بۆ بینینی پلەی گەرمی و ئەگەری باران',
     now: 'ئێستا',
     outlook7Day: 'پێشبینی ٧ ڕۆژ',
-    outlook7DayHint: 'کلیک لە هەر ڕۆژێک بکە بۆ بینینی خۆرهەڵاتن، UV و وردەکاریی با',
+    outlook7DayHint: 'کلیک لە هەر ڕۆژێک بکە بۆ بینینی خۆرهەڵاتن، باران و وردەکاریی با',
     precipitation: 'بارین',
     maxWind: 'بەرزترین با',
     peakUv: 'بەرزترین UV',

@@ -92,7 +92,10 @@ export function HourlyForecastChart({ hourly, unit, lang, isDark }: HourlyForeca
               isDay={activePoint.isDay}
               className="h-4 w-4"
             />
-            <span className="font-mono font-medium tabular-nums text-slate-900 dark:text-white">
+            <span
+              dir={safeIndex === 0 ? undefined : 'ltr'}
+              className="font-mono font-medium tabular-nums text-slate-900 dark:text-white"
+            >
               {labelForHour(activePoint, safeIndex)}
             </span>
             <span className="text-slate-400 dark:text-white/40">·</span>
@@ -261,7 +264,10 @@ export function HourlyForecastChart({ hourly, unit, lang, isDark }: HourlyForeca
                     : 'border border-transparent bg-white/35 text-slate-700 hover:bg-white/65 dark:bg-white/[0.06] dark:text-white/85 dark:hover:bg-white/[0.14]'
                 }`}
               >
-                <span className="font-mono text-xs tabular-nums text-slate-500 dark:text-white/70">
+                <span
+                  dir={idx === 0 ? undefined : 'ltr'}
+                  className="font-mono text-xs tabular-nums text-slate-500 dark:text-white/70"
+                >
                   {labelForHour(item, idx)}
                 </span>
                 <WeatherIcon

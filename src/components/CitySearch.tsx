@@ -35,7 +35,7 @@ export function CitySearch({ lang, onSelectLocation }: CitySearchProps) {
       setIsSearching(true);
       setError(null);
       try {
-        const matches = await searchCities(trimmed, controller.signal);
+        const matches = await searchCities(trimmed, lang, controller.signal);
         setResults(matches);
         setActiveIndex(matches.length > 0 ? 0 : -1);
         setIsOpen(true);
@@ -47,13 +47,13 @@ export function CitySearch({ lang, onSelectLocation }: CitySearchProps) {
       } finally {
         setIsSearching(false);
       }
-    }, 240);
+    }, 320);
 
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query, t.searchUnavailable]);
+  }, [query, lang, t.searchUnavailable]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -108,6 +108,7 @@ export function CitySearch({ lang, onSelectLocation }: CitySearchProps) {
         <input
           ref={inputRef}
           type="text"
+          dir="auto"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -179,10 +180,10 @@ export function CitySearch({ lang, onSelectLocation }: CitySearchProps) {
                       }`}
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-slate-900 dark:text-white">
+                        <div dir="auto" className="truncate text-sm font-medium text-slate-900 dark:text-white">
                           {item.name}
                         </div>
-                        <div className="truncate text-xs text-slate-500 dark:text-white/65">
+                        <div dir="auto" className="truncate text-xs text-slate-500 dark:text-white/65">
                           {[item.admin1, item.country].filter(Boolean).join(' · ')}
                         </div>
                       </div>

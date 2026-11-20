@@ -2,7 +2,6 @@ import { ChevronDown, Droplets } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import {
   formatLocalizedDayLabel,
-  localizeUvLabel,
   TRANSLATIONS,
   translateWeatherCode,
   type LanguageCode,
@@ -126,7 +125,7 @@ export function DailyForecastList({ daily, unit, lang }: DailyForecastListProps)
               </button>
 
               {isExpanded && (
-                <div className="grid grid-cols-2 gap-4 bg-white/35 dark:bg-white/[0.06] px-6 py-4 text-xs sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 bg-white/35 dark:bg-white/[0.06] px-6 py-4 text-xs sm:grid-cols-3">
                   <div>
                     <div className="text-slate-500 dark:text-white/60">{t.precipitation}</div>
                     <div className="mt-1 font-mono text-sm font-medium tabular-nums text-slate-900 dark:text-white">
@@ -139,15 +138,12 @@ export function DailyForecastList({ daily, unit, lang }: DailyForecastListProps)
                       {maxWind.value} {windUnit}
                     </div>
                   </div>
-                  <div>
-                    <div className="text-slate-500 dark:text-white/60">{t.peakUv}</div>
-                    <div className="mt-1 font-mono text-sm font-medium tabular-nums text-slate-900 dark:text-white">
-                      {day.uvIndexMax.toFixed(1)} · {localizeUvLabel(day.uvIndexMax, lang)}
-                    </div>
-                  </div>
-                  <div>
+                  <div className="col-span-2 sm:col-span-1">
                     <div className="text-slate-500 dark:text-white/60">{t.sunriseSunset}</div>
-                    <div className="mt-1 font-mono text-sm font-medium tabular-nums text-slate-900 dark:text-white">
+                    <div
+                      dir="ltr"
+                      className="mt-1 inline-block font-mono text-sm font-medium tabular-nums text-slate-900 dark:text-white"
+                    >
                       {formatClockTime(day.sunrise)} / {formatClockTime(day.sunset)}
                     </div>
                   </div>

@@ -1,3 +1,4 @@
+import type { LanguageCode } from '../i18n/translations';
 import type {
   DailyPoint,
   GeocodingResult,
@@ -8,6 +9,7 @@ import type {
 
 const FORECAST_BASE_URL = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODING_BASE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
+const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 
 export interface WeatherConditionMeta {
   label: string;
@@ -114,14 +116,24 @@ export function formatClockTime(isoString: string): string {
   // Open-Meteo returns local ISO strings like "2026-11-19T08:15" when timezone=auto
   const timePart = isoString.split('T')[1];
   if (!timePart) return isoString;
-  return timePart.slice(0, 5);
+  const [hourStr, minuteStr = '00'] = timePart.slice(0, 5).split(':');
+  const hour24 = Number(hourStr);
+  if (Number.isNaN(hour24)) return timePart.slice(0, 5);
+  const period = hour24 >= 12 ? 'PM' : 'AM';
+  const hour12 = hour24 % 12 || 12;
+  return `${hour12}:${minuteStr} ${period}`;
 }
 
 function formatHourLabel(isoString: string, index: number): string {
   if (index === 0) return 'Now';
   const timePart = isoString.split('T')[1];
   if (!timePart) return isoString;
-  return timePart.slice(0, 5);
+  const [hourStr] = timePart.slice(0, 5).split(':');
+  const hour24 = Number(hourStr);
+  if (Number.isNaN(hour24)) return timePart.slice(0, 5);
+  const period = hour24 >= 12 ? 'PM' : 'AM';
+  const hour12 = hour24 % 12 || 12;
+  return `${hour12} ${period}`;
 }
 
 function formatDayLabels(dateStr: string, index: number): { dayName: string; shortDate: string } {
@@ -146,12 +158,33 @@ function formatDayLabels(dateStr: string, index: number): { dayName: string; sho
   return { dayName, shortDate };
 }
 
-export async function searchCities(query: string, signal?: AbortSignal): Promise<SavedLocation[]> {
-  const trimmed = query.trim();
-  if (trimmed.length < 2) return [];
+interface NominatimSearchResult {
+  place_id: number;
+  osm_id: number;
+  lat: string;
+  lon: string;
+  name?: string;
+  display_name: string;
+  addresstype?: string;
+  type?: string;
+  category?: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    state?: string;
+    region?: string;
+    country?: string;
+  };
+}
 
+const ARABIC_KURDISH_SCRIPT_RE = /[\u0600-\u06FF]/;
+const KURDISH_LATIN_CHAR_RE = /[êîûçşÊÎÛÇŞ]/;
+
+async function searchOpenMeteo(query: string, signal?: AbortSignal): Promise<SavedLocation[]> {
   const params = new URLSearchParams({
-    name: trimmed,
+    name: query,
     count: '8',
     language: 'en',
     format: 'json',
@@ -174,6 +207,121 @@ export async function searchCities(query: string, signal?: AbortSignal): Promise
     longitude: item.longitude,
     timezone: item.timezone,
   }));
+}
+
+async function searchNominatimKurdish(
+  query: string,
+  acceptLanguage: string,
+  signal?: AbortSignal,
+): Promise<SavedLocation[]> {
+  const params = new URLSearchParams({
+    q: query,
+    format: 'jsonv2',
+    addressdetails: '1',
+    featureType: 'settlement',
+    limit: '12',
+    'accept-language': acceptLanguage,
+  });
+
+  const response = await fetch(`${NOMINATIM_SEARCH_URL}?${params.toString()}`, { signal });
+  if (!response.ok) {
+    throw new Error('Unable to search locations right now.');
+  }
+
+  const data = (await response.json()) as NominatimSearchResult[];
+  if (!Array.isArray(data)) return [];
+
+  const settlementTypes = new Set(['city', 'town', 'village', 'municipality', 'hamlet', 'suburb']);
+  const sorted = [...data].sort((a, b) => {
+    const aIsSettlement = settlementTypes.has(a.addresstype || a.type || '') ? 0 : 1;
+    const bIsSettlement = settlementTypes.has(b.addresstype || b.type || '') ? 0 : 1;
+    return aIsSettlement - bIsSettlement;
+  });
+
+  const seen = new Set<string>();
+  const mapped: SavedLocation[] = [];
+
+  for (const item of sorted) {
+    const latitude = Number.parseFloat(item.lat);
+    const longitude = Number.parseFloat(item.lon);
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) continue;
+
+    const name =
+      item.name ||
+      item.address?.city ||
+      item.address?.town ||
+      item.address?.village ||
+      item.address?.municipality ||
+      item.display_name.split(',')[0].trim();
+
+    if (!name) continue;
+
+    const dedupeKey = `${name.toLowerCase()}-${latitude.toFixed(1)}-${longitude.toFixed(1)}`;
+    const osmKey = `osm-${item.osm_id}`;
+    if (seen.has(dedupeKey) || seen.has(osmKey)) continue;
+    seen.add(dedupeKey);
+    seen.add(osmKey);
+
+    const rawAdmin = item.address?.state || item.address?.region;
+    const admin1 = rawAdmin && rawAdmin !== name ? rawAdmin : undefined;
+    const country = item.address?.country || '';
+
+    mapped.push({
+      id: `osm-${item.place_id}`,
+      name,
+      admin1,
+      country,
+      latitude,
+      longitude,
+    });
+
+    if (mapped.length >= 8) break;
+  }
+
+  return mapped;
+}
+
+export async function searchCities(
+  query: string,
+  lang: LanguageCode = 'en',
+  signal?: AbortSignal,
+): Promise<SavedLocation[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const hasArabicScript = ARABIC_KURDISH_SCRIPT_RE.test(trimmed);
+  const hasKurdishLatin = KURDISH_LATIN_CHAR_RE.test(trimmed);
+
+  // Use Nominatim whenever the user types Kurdish (Arabic or Latin Hawar script)
+  // or when the app language is set to Kurdish, so localized Kurdish city names work directly.
+  if (hasArabicScript) {
+    return searchNominatimKurdish(trimmed, 'ckb,ku,en', signal);
+  }
+
+  if (hasKurdishLatin || lang !== 'en') {
+    const acceptLang =
+      lang === 'ku-ba-ar' || lang === 'ku-so'
+        ? 'ckb,ku,en'
+        : 'ku,en';
+
+    try {
+      const kurdishResults = await searchNominatimKurdish(trimmed, acceptLang, signal);
+      if (kurdishResults.length > 0) {
+        return kurdishResults;
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') throw err;
+    }
+    return searchOpenMeteo(trimmed, signal);
+  }
+
+  const openMeteoResults = await searchOpenMeteo(trimmed, signal);
+  if (openMeteoResults.length > 0) {
+    return openMeteoResults;
+  }
+
+  // Fallback for transliterated Kurdish city names typed in English mode (e.g., Dihok, Zaxo, Helebce)
+  return searchNominatimKurdish(trimmed, 'en,ku,ckb', signal);
 }
 
 export async function reverseLookupCity(latitude: number, longitude: number): Promise<SavedLocation> {
@@ -339,4 +487,48 @@ export async function fetchWeatherForecast(
     hourly,
     daily,
   };
+}
+
+export interface CityWeatherSnapshot {
+  temperature: number;
+  weatherCode: number;
+  isDay: boolean;
+}
+
+export async function fetchCurrentSnapshots(
+  locations: SavedLocation[],
+  signal?: AbortSignal,
+): Promise<Record<string, CityWeatherSnapshot>> {
+  if (locations.length === 0) return {};
+
+  const entries = await Promise.allSettled(
+    locations.map(async (loc) => {
+      const params = new URLSearchParams({
+        latitude: loc.latitude.toString(),
+        longitude: loc.longitude.toString(),
+        timezone: 'auto',
+        current: 'temperature_2m,weather_code,is_day',
+      });
+      const res = await fetch(`${FORECAST_BASE_URL}?${params.toString()}`, { signal });
+      if (!res.ok) throw new Error('Failed snapshot');
+      const data = await res.json();
+      return [
+        loc.id,
+        {
+          temperature: data.current.temperature_2m as number,
+          weatherCode: data.current.weather_code as number,
+          isDay: data.current.is_day === 1,
+        },
+      ] as const;
+    }),
+  );
+
+  const result: Record<string, CityWeatherSnapshot> = {};
+  for (const item of entries) {
+    if (item.status === 'fulfilled') {
+      const [id, snapshot] = item.value;
+      result[id] = snapshot;
+    }
+  }
+  return result;
 }

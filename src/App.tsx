@@ -4,6 +4,11 @@ import { CitySearch } from './components/CitySearch';
 import { CurrentWeatherHero } from './components/CurrentWeatherHero';
 import { DailyForecastList } from './components/DailyForecastList';
 import { HourlyForecastChart } from './components/HourlyForecastChart';
+import {
+  isSameLocation,
+  MAX_SAVED_CITIES,
+  SavedCitiesDock,
+} from './components/SavedCitiesDock';
 import { SettingsModal, type ThemeMode } from './components/SettingsModal';
 import {
   LANGUAGE_OPTIONS,
@@ -12,8 +17,10 @@ import {
 } from './i18n/translations';
 import {
   describeWeatherCode,
+  fetchCurrentSnapshots,
   fetchWeatherForecast,
   reverseLookupCity,
+  type CityWeatherSnapshot,
 } from './services/weatherApi';
 import type { SavedLocation, TemperatureUnit, WeatherForecast } from './types/weather';
 
@@ -29,6 +36,7 @@ const INITIAL_LOCATION: SavedLocation = {
 const STORAGE_KEYS = {
   unit: 'sonde_weather_unit_v1',
   active: 'sonde_weather_active_v1',
+  savedCities: 'sonde_weather_saved_cities_v2',
   lang: 'sonde_weather_lang_v1',
   theme: 'sonde_weather_theme_v1',
 };
@@ -82,6 +90,27 @@ function readStoredActive(fallback: SavedLocation): SavedLocation {
     return fallback;
   } catch {
     return fallback;
+  }
+}
+
+function readStoredSavedCities(): SavedLocation[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.savedCities);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (item): item is SavedLocation =>
+          Boolean(item) &&
+          typeof item.id === 'string' &&
+          typeof item.name === 'string' &&
+          typeof item.latitude === 'number' &&
+          typeof item.longitude === 'number',
+      )
+      .slice(0, MAX_SAVED_CITIES);
+  } catch {
+    return [];
   }
 }
 
@@ -214,6 +243,8 @@ export default function App() {
   const [activeLocation, setActiveLocation] = useState<SavedLocation>(() =>
     readStoredActive(INITIAL_LOCATION),
   );
+  const [savedCities, setSavedCities] = useState<SavedLocation[]>(readStoredSavedCities);
+  const [citySnapshots, setCitySnapshots] = useState<Record<string, CityWeatherSnapshot>>({});
 
   const [forecast, setForecast] = useState<WeatherForecast | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -280,6 +311,43 @@ export default function App() {
     }
   }, [activeLocation]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.savedCities, JSON.stringify(savedCities));
+    } catch {
+      // Ignore storage failures
+    }
+  }, [savedCities]);
+
+  useEffect(() => {
+    if (savedCities.length === 0) return;
+    const controller = new AbortController();
+    fetchCurrentSnapshots(savedCities, controller.signal)
+      .then((snapshots) => {
+        if (Object.keys(snapshots).length > 0) {
+          setCitySnapshots((prev) => ({ ...prev, ...snapshots }));
+        }
+      })
+      .catch(() => {
+        // Ignore transient snapshot errors
+      });
+    return () => controller.abort();
+  }, [savedCities]);
+
+  useEffect(() => {
+    if (!forecast) return;
+    const matchedSaved = savedCities.find((city) => isSameLocation(city, forecast.location));
+    if (!matchedSaved) return;
+    setCitySnapshots((prev) => ({
+      ...prev,
+      [matchedSaved.id]: {
+        temperature: forecast.current.temperature,
+        weatherCode: forecast.current.weatherCode,
+        isDay: forecast.current.isDay,
+      },
+    }));
+  }, [forecast, savedCities]);
+
   const loadForecast = useCallback(
     async (location: SavedLocation, background = false, signal?: AbortSignal) => {
       if (background) {
@@ -313,6 +381,28 @@ export default function App() {
   function handleSelectLocation(location: SavedLocation) {
     setNotice(null);
     setActiveLocation(location);
+  }
+
+  function handleSaveCity(location: SavedLocation) {
+    setSavedCities((prev) => {
+      if (prev.some((city) => isSameLocation(city, location))) return prev;
+      if (prev.length >= MAX_SAVED_CITIES) return prev;
+      return [...prev, location];
+    });
+    if (forecast && isSameLocation(forecast.location, location)) {
+      setCitySnapshots((prev) => ({
+        ...prev,
+        [location.id]: {
+          temperature: forecast.current.temperature,
+          weatherCode: forecast.current.weatherCode,
+          isDay: forecast.current.isDay,
+        },
+      }));
+    }
+  }
+
+  function handleRemoveCity(id: string) {
+    setSavedCities((prev) => prev.filter((city) => city.id !== id));
   }
 
   function handleUseMyLocation() {
@@ -452,8 +542,8 @@ export default function App() {
               <div className="mt-10 h-16 w-40 rounded-xl bg-slate-900/10 dark:bg-white/15" />
             </div>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-              <div className="glass-panel h-80 animate-pulse rounded-3xl lg:col-span-7" />
               <div className="glass-panel h-80 animate-pulse rounded-3xl lg:col-span-5" />
+              <div className="glass-panel h-80 animate-pulse rounded-3xl lg:col-span-7" />
             </div>
           </div>
         ) : error && !forecast ? (
@@ -501,6 +591,9 @@ export default function App() {
             />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
+              <div className="lg:col-span-5">
+                <DailyForecastList daily={forecast.daily} unit={unit} lang={lang} />
+              </div>
               <div className="lg:col-span-7">
                 <HourlyForecastChart
                   hourly={forecast.hourly}
@@ -509,38 +602,21 @@ export default function App() {
                   isDark={isDark}
                 />
               </div>
-              <div className="lg:col-span-5">
-                <DailyForecastList daily={forecast.daily} unit={unit} lang={lang} />
-              </div>
             </div>
+
+            <SavedCitiesDock
+              savedCities={savedCities}
+              activeLocation={activeLocation}
+              snapshots={citySnapshots}
+              unit={unit}
+              lang={lang}
+              onSelectCity={handleSelectLocation}
+              onSaveCity={handleSaveCity}
+              onRemoveCity={handleRemoveCity}
+            />
           </div>
         ) : null}
       </main>
-
-      <footer className="border-t border-white/60 bg-white/30 dark:border-white/15 dark:bg-white/[0.04] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 text-xs text-slate-600 dark:text-white/65 sm:px-6">
-          <span>
-            {t.dataAttribution}{' '}
-            <a
-              href="https://open-meteo.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-slate-900 underline decoration-slate-400 underline-offset-2 hover:text-sky-700 dark:text-white/90 dark:decoration-white/35 dark:hover:text-white"
-            >
-              Open-Meteo
-            </a>
-          </span>
-          {forecast && (
-            <span dir="ltr" className="font-mono tabular-nums text-slate-500 dark:text-white/60">
-              {Math.abs(forecast.location.latitude).toFixed(2)}°
-              {forecast.location.latitude >= 0 ? 'N' : 'S'},{' '}
-              {Math.abs(forecast.location.longitude).toFixed(2)}°
-              {forecast.location.longitude >= 0 ? 'E' : 'W'} · {t.elevation}{' '}
-              {Math.round(forecast.elevation)} {t.unitLabels.m}
-            </span>
-          )}
-        </div>
-      </footer>
 
       <SettingsModal
         isOpen={isSettingsOpen}
